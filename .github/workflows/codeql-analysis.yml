@@ -32,7 +32,15 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ github.event.inputs.languages || 'swift' }}
-          build-mode: autobuild
+          build-mode: manual
+
+      # Package.swift declares .macOS(.v15), but under tracing the dependencies
+      # get compiled against a 10.13-era target and fail with
+      # "concurrency is only available in macOS 10.15.0 or newer".
+      # Pin the triple explicitly so it applies to the whole build graph.
+      - name: Build
+        run: |
+          swift build -Xswiftc -target -Xswiftc arm64-apple-macosx15.0
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

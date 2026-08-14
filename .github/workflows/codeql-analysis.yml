@@ -1,0 +1,40 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: 'Languages to analyze'
+        required: true
+        default: 'swift'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      security-events: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ github.event.inputs.languages || 'swift' }}
+          build-mode: autobuild
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ github.event.inputs.languages || 'swift' }}"

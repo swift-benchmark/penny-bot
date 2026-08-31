@@ -1,5 +1,5 @@
 {
-  "originHash" : "2c9b7a87e25138ddb4f380afdde4dbb04661dd6c8cc5a824993b284f783fabfa",
+  "originHash" : "792cb1dca5232785bb271c0256019430116bdf811ea8bd819c23d046746d743f",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -222,8 +222,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-evolution-metadata-extractor.git",
       "state" : {
-        "revision" : "37b7075f766679dc3310454c385f93be8b4f5083",
-        "version" : "1.1.0"
+        "revision" : "8877f14497370eea12554e47d1c4d45fa37568d0",
+        "version" : "1.1.1"
       }
     },
     {
@@ -375,8 +375,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/swift-service-lifecycle.git",
       "state" : {
-        "revision" : "9829955b385e5bb88128b73f1b8389e9b9c3191a",
-        "version" : "2.11.0"
+        "revision" : "7f9326b0326ff86e3646295ea6e891f68c471c5e",
+        "version" : "2.12.0"
       }
     },
     {
@@ -393,8 +393,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "704705c5c51156ede21172a38654d522ce487074",
-        "version" : "1.8.0"
+        "revision" : "869129b7bf4ecc57b97d0193ad29690ca2134750",
+        "version" : "1.8.1"
       }
     },
     {

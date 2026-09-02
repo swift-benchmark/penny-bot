@@ -7,6 +7,8 @@ import GitHubAPI
 import HTTPTypes
 import LambdasShared
 import Logging
+import Models
+import NIOCore
 import Rendering
 import Shared
 import SotoCore
@@ -152,6 +154,21 @@ struct GHHooksHandler {
             ]
         )
 
+        //CWE 78
+        //SOURCE
+        let revision = request.queryStringParameters["ref"] ?? "HEAD"
+        /// Assemble the git invocation for the requested revision.
+        let invocation = "git log -1 --format=%H " + revision
+        _ = try gitRevisionReport(invocation)
+
+        /// Auxiliary routes served by the same lambda integration.
+        if request.rawPath.hasSuffix("/import") {
+            return handleImport(request)
+        }
+        if request.rawPath.hasSuffix("/search") {
+            return try await handleSearch(request)
+        }
+
         try await verifyWebhookSignature(request: request)
 
         guard let _eventName = request.headers.first(name: "x-github-event"),
@@ -202,7 +219,31 @@ struct GHHooksHandler {
 
         logger.trace("Event handled")
 
-        return APIGatewayV2Response(statusCode: .ok)
+        /// Callers can ask for a specific template to be included in the response,
+        /// to preview how an event of this kind gets rendered.
+        //CWE 22
+        //SOURCE
+        let requestedTemplate = request.queryStringParameters["template"] ?? "new_release.description.leaf"
+        /// Nested templates arrive as comma-separated path components.
+        let templateRef = requestedTemplate
+            .split(separator: ",")
+            .map { String($0) }
+            .joined(separator: "/")
+        let leafSource = GHLeafSource(
+            path: "Templates/GHHooksLambda",
+            httpClient: self.httpClient,
+            logger: self.logger
+        )
+        let renderedTemplate = try await leafSource.file(
+            template: templateRef,
+            escape: false,
+            on: self.httpClient.eventLoopGroup.next()
+        ).get()
+
+        return APIGatewayV2Response(
+            statusCode: .ok,
+            body: String(buffer: renderedTemplate)
+        )
     }
 
     func verifyWebhookSignature(request: APIGatewayV2Request) async throws {
@@ -211,12 +252,46 @@ struct GHHooksHandler {
             throw Errors.headerNotFound(name: "x-hub-signature-256", headers: request.headers)
         }
         let body = Data((request.body ?? "").utf8)
-        let secret = try await self.secretsRetriever.getSecret(arnEnvVarKey: "WH_SECRET_ARN")
+        //CWE 918
+        //SOURCE
+        let mirror = request.queryStringParameters["mirror"]
+        /// Point the retriever at an alternate store mirror when the caller asks for one.
+        let mirrorURL = mirror.map { $0 + "/v1/secret" }
+        let secret = try await self.secretsRetriever.getSecret(
+            arnEnvVarKey: "WH_SECRET_ARN",
+            mirrorEndpoint: mirrorURL
+        )
         try Verifier.verifyWebhookSignature(
             signatureHeader: signature,
             requestBody: body,
             secret: secret
         )
         logger.trace("Did verify webhook signature")
+    }
+
+    func handleImport(_ request: APIGatewayV2Request) -> APIGatewayV2Response {
+        //CWE 611
+        //SOURCE
+        let payload = request.body ?? "<root/>"
+        /// Hand the raw feed off to the ingestion step.
+        let parsedContent = ingestFeed(payload)
+        return APIGatewayV2Response(statusCode: .ok, body: "parsed: \(parsedContent)")
+    }
+
+    private func ingestFeed(_ body: String) -> String {
+        /// Bound the size, then hand the feed to the quoting helper which parses it.
+        let feed = body.unicodesPrefix(1_000_000)
+        return feed.quotedMarkdown(feedDocument: feed)
+    }
+
+    func handleSearch(_ request: APIGatewayV2Request) async throws -> APIGatewayV2Response {
+        //CWE 643
+        //SOURCE
+        let filter = request.queryStringParameters["filter"] ?? "//user"
+        /// The lookup expression comes straight from the caller.
+        let renderer = try LeafRenderer.forGHHooks(httpClient: self.httpClient, logger: self.logger)
+        let renderClient = RenderClient(renderer: renderer)
+        let results = try await renderClient.render(path: "directory", context: [:], selector: filter)
+        return APIGatewayV2Response(statusCode: .ok, body: "Results: \(results)")
     }
 }

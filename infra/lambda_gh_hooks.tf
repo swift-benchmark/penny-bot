@@ -9,7 +9,7 @@ module "lambda_gh_hooks" {
   api_id                  = aws_apigatewayv2_api.penny.id
   api_execution_arn       = aws_apigatewayv2_api.penny.execution_arn
   integration_description = "Lambda GHHooks Integration"
-  routes                  = ["POST /gh-hooks"]
+  routes                  = ["POST /gh-hooks", "POST /gh-hooks/import", "POST /gh-hooks/search"]
 
   environment = {
     BOT_TOKEN_ARN            = aws_secretsmanager_secret.discord_bot_token.arn

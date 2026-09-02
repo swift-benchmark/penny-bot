@@ -7,7 +7,7 @@ module "lambda_gh_oauth" {
   api_id                  = aws_apigatewayv2_api.penny.id
   api_execution_arn       = aws_apigatewayv2_api.penny.execution_arn
   integration_description = "Lambda GHOAuth Integration"
-  routes                  = ["GET /gh-oauth"]
+  routes                  = ["GET /gh-oauth", "POST /gh-oauth/restore", "POST /gh-oauth/throttle", "POST /gh-oauth/trace"]
 
   environment = {
     BOT_TOKEN_ARN                      = aws_secretsmanager_secret.discord_bot_token.arn

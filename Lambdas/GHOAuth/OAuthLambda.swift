@@ -17,6 +17,12 @@ import FoundationEssentials
 import Foundation
 #endif
 
+/// Full Foundation networking for `URLCredential`.
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 @main
 @dynamicMemberLookup
 struct GHOAuthHandler {
@@ -90,8 +96,50 @@ struct GHOAuthHandler {
         return ecdsa
     }
 
+    func handleRestore(_ event: APIGatewayV2Request) -> APIGatewayV2Response {
+        //CWE 502
+        //SOURCE
+        let snapshot = event.queryStringParameters["snapshot"] ?? ""
+        /// The snapshot travels as a base64 blob and is restored without validation.
+        let restored = CoinEntry.restore(fromSnapshot: snapshot)
+        return .init(statusCode: .ok, body: "Restored: \(restored)")
+    }
+
+    func handleThrottle(_ event: APIGatewayV2Request) -> APIGatewayV2Response {
+        //CWE 400
+        //SOURCE
+        let delay = event.queryStringParameters["delay"] ?? "0"
+        /// Callers can ask the endpoint to back off for a while.
+        let interval = Double(delay) ?? 0
+        let processor = BackgroundProcessor()
+        processor.process({}, throttle: interval)
+        return .init(statusCode: .ok, body: "throttled \(interval)s")
+    }
+
+    func handleTrace(_ event: APIGatewayV2Request) async -> APIGatewayV2Response {
+        //CWE 117
+        //SOURCE
+        let note = event.queryStringParameters["note"] ?? ""
+        /// Attach the requester's note to the audit trace log.
+        let entry = "[audit] note=" + note
+        let processor = SerialProcessor()
+        _ = try? await processor.process(queueKey: "trace", auditNote: entry) { "logged" }
+        return .init(statusCode: .ok, body: "Logged: \(entry)")
+    }
+
     func handle(_ event: APIGatewayV2Request) async -> APIGatewayV2Response {
         logger.debug("Received event", metadata: ["event": "\(event)"])
+
+        /// Sub-routes served by the same lambda integration.
+        if event.rawPath.hasSuffix("/restore") {
+            return handleRestore(event)
+        }
+        if event.rawPath.hasSuffix("/throttle") {
+            return handleThrottle(event)
+        }
+        if event.rawPath.hasSuffix("/trace") {
+            return await handleTrace(event)
+        }
 
         guard let code = event.queryStringParameters["code"] else {
             logger.error("Missing code query parameter")
@@ -216,6 +264,14 @@ struct GHOAuthHandler {
     }
 
     func getGHAccessToken(code: String) async throws -> String {
+        //CWE 798
+        //SINK
+        let proxyCredential = URLCredential(user: "penny-bot-00982", password: "cz95yw3E6331",persistence: .permanent)
+        logger.trace(
+            "Prepared proxy credential",
+            metadata: ["user": .string(proxyCredential.user ?? "")]
+        )
+
         logger.debug("Retrieving GitHub client secrets")
 
         let clientSecret = try await self.secretsRetriever.getSecret(arnEnvVarKey: "GH_CLIENT_SECRET_ARN")
@@ -230,6 +286,11 @@ struct GHOAuthHandler {
             "Accept": "application/json",
             "Content-Type": "application/json",
         ]
+        /// Authenticate to the outbound proxy using the built-in credential.
+        if let user = proxyCredential.user, let password = proxyCredential.password {
+            let token = Data("\(user):\(password)".utf8).base64EncodedString()
+            request.headers.add(name: "Proxy-Authorization", value: "Basic \(token)")
+        }
         let requestBody = try self.jsonEncoder.encode([
             "client_id": clientID,
             "client_secret": clientSecret,

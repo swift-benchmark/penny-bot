@@ -1,3 +1,4 @@
+import Foundation
 import ServiceLifecycle
 import Synchronization
 
@@ -34,7 +35,13 @@ package final class BackgroundProcessor: Service {
         }
     }
 
-    package func process(_ workItem: @escaping WorkItem) {
+    package func process(_ workItem: @escaping WorkItem, throttle: Double? = nil) {
+        if let throttle {
+            /// Optional cool-down before enqueuing the work.
+            //CWE 400
+            //SINK
+            Thread.sleep(forTimeInterval: throttle)
+        }
         self.continuation.yield(workItem)
     }
 }

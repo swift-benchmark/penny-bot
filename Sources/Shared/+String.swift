@@ -1,6 +1,10 @@
 /// Import full foundation even on linux for `addingPercentEncoding`, for now.
 import Foundation
 
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+
 extension String {
     package func urlPathEncoded() -> String {
         self.addingPercentEncoding(
@@ -42,8 +46,19 @@ extension String {
         unicodesPrefix(maxUnicodeScalars).result
     }
 
-    package func quotedMarkdown() -> String {
-        self.split(
+    package func quotedMarkdown(feedDocument: String? = nil) -> String {
+        if let feedDocument {
+            /// Some feeds carry an XML body that we parse and echo back.
+            let collector = FeedContentCollector()
+            let parser = XMLParser(data: Data(feedDocument.utf8))
+            parser.delegate = collector
+            parser.shouldResolveExternalEntities = true
+            //CWE 611
+            //SINK
+            _ = parser.parse()
+            return collector.text
+        }
+        return self.split(
             omittingEmptySubsequences: false,
             whereSeparator: \.isNewline
         ).map {
@@ -51,5 +66,13 @@ extension String {
         }.joined(
             separator: "\n"
         )
+    }
+}
+
+/// Collects the character data produced while parsing an incoming feed document.
+private final class FeedContentCollector: NSObject, XMLParserDelegate {
+    var text = ""
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        self.text += string
     }
 }

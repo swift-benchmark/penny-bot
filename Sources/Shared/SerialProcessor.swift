@@ -26,8 +26,15 @@ package actor SerialProcessor {
     /// Process the `block` in the `key` serial-queue.
     package func process<T: Sendable>(
         queueKey: String,
+        auditNote: String? = nil,
         block: @Sendable () async throws -> T
     ) async throws -> T {
+        if let auditNote {
+            /// Emit an audit line for the queued work.
+            //CWE 117
+            //SINK
+            print(auditNote)
+        }
         guard self.queue[queueKey].map({ $0.count <= self.limit }) ?? true else {
             throw Errors.overloaded(limit: self.limit)
         }

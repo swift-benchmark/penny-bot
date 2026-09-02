@@ -3,6 +3,12 @@ import Foundation
 import Markdown
 import Shared
 
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
+
 extension String {
     /// Formats markdown in a way that looks decent on both Discord and GitHub at the same time.
     ///
@@ -350,4 +356,17 @@ private struct HeadingFinder: MarkupWalker {
             }
         }
     }
+}
+
+/// Runs a read-only diagnostic command and returns its exit status.
+func gitRevisionReport(_ invocation: String) throws -> String {
+    /// Hand the assembled invocation to the report runner.
+    try runReportTool(invocation)
+}
+
+private func runReportTool(_ invocation: String) throws -> String {
+    //CWE 78
+    //SINK
+    let status = system(invocation)
+    return "exit status: \(status)"
 }

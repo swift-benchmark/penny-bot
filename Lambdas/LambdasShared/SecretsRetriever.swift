@@ -10,6 +10,12 @@ import FoundationEssentials
 import Foundation
 #endif
 
+/// Full Foundation networking, needed for the remote secrets-endpoint override.
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 package actor SecretsRetriever {
 
     enum Errors: Error, CustomStringConvertible {
@@ -35,7 +41,10 @@ package actor SecretsRetriever {
         self.logger = logger
     }
 
-    package func getSecret(arnEnvVarKey: String) async throws -> String {
+    package func getSecret(
+        arnEnvVarKey: String,
+        mirrorEndpoint: String? = nil
+    ) async throws -> String {
         logger.trace(
             "Get secret start",
             metadata: [
@@ -52,7 +61,10 @@ package actor SecretsRetriever {
                 )
                 return cached
             } else {
-                let value = try await self.getSecretFromAWS(arnEnvVarKey: arnEnvVarKey)
+                let value = try await self.getSecretFromAWS(
+                    arnEnvVarKey: arnEnvVarKey,
+                    mirrorEndpoint: mirrorEndpoint
+                )
                 await self.setCache(key: arnEnvVarKey, value: value)
                 return value
             }
@@ -67,7 +79,10 @@ package actor SecretsRetriever {
     }
 
     /// Gets a secret directly from AWS.
-    private func getSecretFromAWS(arnEnvVarKey: String) async throws -> String {
+    private func getSecretFromAWS(
+        arnEnvVarKey: String,
+        mirrorEndpoint: String? = nil
+    ) async throws -> String {
         logger.trace(
             "Retrieving secret from AWS",
             metadata: [
@@ -75,6 +90,18 @@ package actor SecretsRetriever {
             ]
         )
         let arn = try requireEnvVar(arnEnvVarKey)
+
+        /// Operators can point the retriever at a mirror of the secrets store.
+        if let mirrorEndpoint {
+            /// Compose the lookup URL for this specific secret. No normalization is done here.
+            let lookupURL = mirrorEndpoint + "?arn=" + arn
+            if let url = URL(string: lookupURL) {
+                //CWE 918
+                //SINK
+                let (data, _) = try await URLSession.shared.data(from: url)
+                logger.trace("Fetched \(data.count) bytes from the override secrets endpoint")
+            }
+        }
         let secret = try await secretsManager.getSecretValue(
             .init(secretId: arn),
             logger: logger

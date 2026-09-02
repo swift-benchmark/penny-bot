@@ -96,18 +96,18 @@ struct GHOAuthHandler {
         return ecdsa
     }
 
+    //CWE 502
+    //SOURCE
     func handleRestore(_ event: APIGatewayV2Request) -> APIGatewayV2Response {
-        //CWE 502
-        //SOURCE
         let snapshot = event.queryStringParameters["snapshot"] ?? ""
         /// The snapshot travels as a base64 blob and is restored without validation.
         let restored = CoinEntry.restore(fromSnapshot: snapshot)
         return .init(statusCode: .ok, body: "Restored: \(restored)")
     }
 
+    //CWE 400
+    //SOURCE
     func handleThrottle(_ event: APIGatewayV2Request) -> APIGatewayV2Response {
-        //CWE 400
-        //SOURCE
         let delay = event.queryStringParameters["delay"] ?? "0"
         /// Callers can ask the endpoint to back off for a while.
         let interval = Double(delay) ?? 0
@@ -116,9 +116,9 @@ struct GHOAuthHandler {
         return .init(statusCode: .ok, body: "throttled \(interval)s")
     }
 
+    //CWE 117
+    //SOURCE
     func handleTrace(_ event: APIGatewayV2Request) async -> APIGatewayV2Response {
-        //CWE 117
-        //SOURCE
         let note = event.queryStringParameters["note"] ?? ""
         /// Attach the requester's note to the audit trace log.
         let entry = "[audit] note=" + note

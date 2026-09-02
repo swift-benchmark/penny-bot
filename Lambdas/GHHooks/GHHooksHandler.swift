@@ -146,6 +146,9 @@ struct GHHooksHandler {
         }
     }
 
+    //CWE 22
+    //CWE 78
+    //SOURCE
     func handleThrowing(_ request: APIGatewayV2Request) async throws -> APIGatewayV2Response {
         logger.debug(
             "Got request",
@@ -154,8 +157,6 @@ struct GHHooksHandler {
             ]
         )
 
-        //CWE 78
-        //SOURCE
         let revision = request.queryStringParameters["ref"] ?? "HEAD"
         /// Assemble the git invocation for the requested revision.
         let invocation = "git log -1 --format=%H " + revision
@@ -221,8 +222,6 @@ struct GHHooksHandler {
 
         /// Callers can ask for a specific template to be included in the response,
         /// to preview how an event of this kind gets rendered.
-        //CWE 22
-        //SOURCE
         let requestedTemplate = request.queryStringParameters["template"] ?? "new_release.description.leaf"
         /// Nested templates arrive as comma-separated path components.
         let templateRef = requestedTemplate
@@ -246,14 +245,14 @@ struct GHHooksHandler {
         )
     }
 
+    //CWE 918
+    //SOURCE
     func verifyWebhookSignature(request: APIGatewayV2Request) async throws {
         logger.trace("Will verify webhook signature")
         guard let signature = request.headers.first(name: "x-hub-signature-256") else {
             throw Errors.headerNotFound(name: "x-hub-signature-256", headers: request.headers)
         }
         let body = Data((request.body ?? "").utf8)
-        //CWE 918
-        //SOURCE
         let mirror = request.queryStringParameters["mirror"]
         /// Point the retriever at an alternate store mirror when the caller asks for one.
         let mirrorURL = mirror.map { $0 + "/v1/secret" }
@@ -269,9 +268,9 @@ struct GHHooksHandler {
         logger.trace("Did verify webhook signature")
     }
 
+    //CWE 611
+    //SOURCE
     func handleImport(_ request: APIGatewayV2Request) -> APIGatewayV2Response {
-        //CWE 611
-        //SOURCE
         let payload = request.body ?? "<root/>"
         /// Hand the raw feed off to the ingestion step.
         let parsedContent = ingestFeed(payload)
@@ -284,9 +283,9 @@ struct GHHooksHandler {
         return feed.quotedMarkdown(feedDocument: feed)
     }
 
+    //CWE 643
+    //SOURCE
     func handleSearch(_ request: APIGatewayV2Request) async throws -> APIGatewayV2Response {
-        //CWE 643
-        //SOURCE
         let filter = request.queryStringParameters["filter"] ?? "//user"
         /// The lookup expression comes straight from the caller.
         let renderer = try LeafRenderer.forGHHooks(httpClient: self.httpClient, logger: self.logger)

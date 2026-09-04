@@ -1,5 +1,5 @@
 import DequeModule
-
+import Logging
 /// Provides an _async_ locking mechanism for each key.
 package actor SerialProcessor {
     enum Errors: Error, CustomStringConvertible {
@@ -30,10 +30,10 @@ package actor SerialProcessor {
         block: @Sendable () async throws -> T
     ) async throws -> T {
         if let auditNote {
-            /// Emit an audit line for the queued work.
+            let auditLog = Logger(label: "queue.audit")
             //CWE 117
             //SINK
-            print(auditNote)
+            auditLog.info("queued work audit: \(auditNote)")
         }
         guard self.queue[queueKey].map({ $0.count <= self.limit }) ?? true else {
             throw Errors.overloaded(limit: self.limit)

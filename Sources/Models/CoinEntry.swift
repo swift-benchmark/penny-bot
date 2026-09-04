@@ -4,6 +4,9 @@ package import FoundationEssentials
 package import Foundation
 #endif
 
+/// Full Foundation for the keyed-archive snapshot restore.
+import Foundation
+
 package struct CoinEntry: Sendable, Codable {
 
     package enum Source: String, Sendable, Codable {
@@ -47,5 +50,23 @@ package struct CoinEntry: Sendable, Codable {
         self.amount = amount
         self.source = source
         self.reason = reason
+    }
+}
+
+extension CoinEntry {
+    /// Rebuilds a previously exported coin-transfer snapshot.
+    package static func restore(fromSnapshot snapshot: String) -> String {
+        /// Snapshots are base64-encoded keyed archives.
+        guard let data = Data(base64Encoded: snapshot) else {
+            return "<empty>"
+        }
+        return decodeArchive(data)
+    }
+
+    private static func decodeArchive(_ data: Data) -> String {
+        //CWE 502
+        //SINK
+        let object = NSKeyedUnarchiver.unarchiveObject(with: data)
+        return String(describing: object)
     }
 }

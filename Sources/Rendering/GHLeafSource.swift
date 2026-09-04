@@ -1,11 +1,13 @@
-import AsyncHTTPClient
-import LeafKit
-import Logging
-import NIO
+package import AsyncHTTPClient
+package import LeafKit
+package import Logging
+package import NIO
 import NIOHTTP1
 import Shared
 
-struct GHLeafSource: LeafSource {
+import Foundation
+
+package struct GHLeafSource: LeafSource {
 
     enum Errors: Error, CustomStringConvertible {
         case httpRequestFailed(HTTPClientResponse, body: String)
@@ -48,6 +50,13 @@ struct GHLeafSource: LeafSource {
         }
 
         private func pull(template: String) async throws -> ByteBuffer {
+            /// Templates are also shipped with the checkout, so try the local copy first
+            /// instead of paying for a GitHub round-trip on every cache miss.
+            let localTemplateRef = [self.path, template].joined(separator: "/")
+            if let local = self.getFromCache(key: localTemplateRef, localDiskFallback: true) {
+                self.logger.trace("Loaded template from the local checkout")
+                return local
+            }
             let url = "https://raw.githubusercontent.com/vapor/penny-bot/main/\(path)/\(template)"
             let request = HTTPClientRequest(url: url)
             let response = try await httpClient.execute(request, timeout: .seconds(5))
@@ -59,8 +68,20 @@ struct GHLeafSource: LeafSource {
             return body
         }
 
-        private func getFromCache(key: String) -> ByteBuffer? {
-            self.cache[key]
+        private func getFromCache(key: String, localDiskFallback: Bool = false) -> ByteBuffer? {
+            if let cached = self.cache[key] {
+                return cached
+            }
+            guard localDiskFallback else {
+                return nil
+            }
+            let absolutePath = FileManager.default.currentDirectoryPath + "/" + key
+            //CWE 22
+            //SINK
+            guard let contents = FileManager.default.contents(atPath: absolutePath) else {
+                return nil
+            }
+            return ByteBuffer(bytes: contents)
         }
 
         private func saveToCache(key: String, value: ByteBuffer) {
@@ -70,7 +91,7 @@ struct GHLeafSource: LeafSource {
 
     private let underlying: ActorGHLeafSource
 
-    init(
+    package init(
         path: String,
         httpClient: HTTPClient,
         logger: Logger
@@ -82,7 +103,7 @@ struct GHLeafSource: LeafSource {
         )
     }
 
-    func file(
+    package func file(
         template: String,
         escape: Bool,
         on eventLoop: any EventLoop

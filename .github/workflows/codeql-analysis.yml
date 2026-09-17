@@ -17,12 +17,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    # Linux, not macOS: this is an AWS Lambda project and parts of it use APIs
-    # that Swift marks unavailable on Darwin (`system` in GHHooks), so the
-    # package cannot build on a macOS runner at all. swift:6.3-noble is the
-    # image the project's own test.yml and Dockerfile build with.
-    runs-on: ubuntu-latest
-    container: swift:6.3-noble
+    runs-on: macos-latest
     permissions:
       contents: write
       security-events: write
@@ -31,7 +26,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -39,8 +34,16 @@ jobs:
           languages: ${{ github.event.inputs.languages || 'swift' }}
           build-mode: manual
 
+      # Package.swift declares .macOS(.v15), but under tracing the dependencies
+      # get compiled against a 10.13-era target and fail with
+      # "concurrency is only available in macOS 10.15.0 or newer".
+      # Pin the triple explicitly so it applies to the whole build graph - and
+      # keep the x86_64 arch, because the CodeQL tracer runs the build under
+      # Rosetta. Forcing arm64 here makes the C targets (which SwiftPM still
+      # builds as x86_64) fail to link.
       - name: Build
-        run: swift build
+        run: |
+          swift build -Xswiftc -target -Xswiftc x86_64-apple-macosx15.0
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

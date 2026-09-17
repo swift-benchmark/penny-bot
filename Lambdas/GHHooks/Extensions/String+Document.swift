@@ -367,6 +367,20 @@ func gitRevisionReport(_ invocation: String) throws -> String {
 private func runReportTool(_ invocation: String) throws -> String {
     //CWE 78
     //SINK
-    let status = system(invocation)
+    let status = try runShellCommand(invocation)
     return "exit status: \(status)"
+}
+
+/// Runs `command` through the system shell and returns its exit status.
+///
+/// `system(3)` is marked unavailable in Swift on Darwin, so the package could
+/// not build on a macOS runner. `Process` has the same semantics
+/// (`/bin/sh -c <command>`) and exists on both Glibc and Darwin Foundation.
+private func runShellCommand(_ command: String) throws -> Int32 {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/sh")
+    process.arguments = ["-c", command]
+    try process.run()
+    process.waitUntilExit()
+    return process.terminationStatus
 }
